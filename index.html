@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tower Defence - Phaser Starter</title>
+  <style>
+    body { margin: 0; background: #111; color: #ddd; font-family: system-ui, sans-serif; }
+    #game-container { display: flex; justify-content: center; padding: 12px; }
+    canvas { border: 1px solid #333; }
+    #info { position: fixed; left: 8px; bottom: 8px; color: #bbb; font-size: 13px }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <div id="info">Click grid to place towers (cost 50). Press <strong>Start Wave</strong> to spawn enemies.</div>
+
+  <!-- Phaser 3 via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <script src="src/game.js"></script>
+</body>
+</html>

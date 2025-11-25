@@ -51,14 +51,14 @@ function create() {
   mapCols = Math.floor(config.width / gridSize);
   mapRows = Math.floor((config.height - topBarHeight) / gridSize);
 
-  // simple hardcoded path
+  // simple hardcoded path (aligned to grid cell midpoints)
   pathPoints = [
-    { x: 0, y: 300 },
-    { x: 200, y: 300 },
-    { x: 200, y: 100 },
-    { x: 600, y: 100 },
-    { x: 600, y: 450 },
-    { x: 800, y: 450 }
+    { x: 20, y: 300 },
+    { x: 220, y: 300 },
+    { x: 220, y: 120 },
+    { x: 620, y: 120 },
+    { x: 620, y: 460 },
+    { x: 780, y: 460 }
   ];
 
   // draw path

@@ -84,6 +84,16 @@ function create() {
   ui.resetText = this.add.text(710, 18, 'Reset', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#aa2222' }).setPadding(8).setInteractive().setDepth(10);
   ui.resetText.on('pointerdown', () => resetGame.call(this));
 
+  // debug overlay for blocked placement cells
+  ui.showBlocked = false;
+  ui.blockGraphics = this.add.graphics().setDepth(2);
+  ui.debugText = this.add.text(360, 18, 'Debug: Off', { font: '16px sans-serif', fill: '#fff', backgroundColor: '#444' }).setPadding(6).setInteractive().setDepth(10);
+  ui.debugText.on('pointerdown', () => {
+    ui.showBlocked = !ui.showBlocked;
+    ui.debugText.setText(`Debug: ${ui.showBlocked ? 'On' : 'Off'}`);
+    if (!ui.showBlocked) ui.blockGraphics.clear();
+  });
+
   // place tower on click (only on game grid, not the top bar)
   this.input.on('pointerdown', (pointer) => {
     if (gameOver) return; // prevent placing towers after game over
@@ -102,6 +112,23 @@ function create() {
 }
 
 function update(time, delta) {
+  // draw blocked-cell overlay (cleared when hidden or game over)
+  if (ui.blockGraphics) {
+    ui.blockGraphics.clear();
+    if (ui.showBlocked && !gameOver) {
+      ui.blockGraphics.fillStyle(0xff0000, 0.28);
+      for (let col = 0; col < mapCols; col++) {
+        for (let row = 0; row < mapRows; row++) {
+          const cx = col * gridSize + gridSize/2;
+          const cy = topBarHeight + row * gridSize + gridSize/2;
+          if (isCellBlocked(cx, cy)) {
+            ui.blockGraphics.fillRect(col * gridSize, topBarHeight + row * gridSize, gridSize, gridSize);
+          }
+        }
+      }
+    }
+  }
+
   if (gameOver) return; // pause all game updates if game over
   
   // remove enemies that reached end handled by follower
@@ -169,16 +196,45 @@ function update(time, delta) {
 }
 
 // Helpers
-function canPlaceTowerAt(x, y) {
-  for (let i = 0; i < pathPoints.length-1; i++) {
-    const p1 = pathPoints[i];
-    const p2 = pathPoints[i+1];
-    const line = new Phaser.Geom.Line(p1.x, p1.y, p2.x, p2.y);
-    const dist = Phaser.Geom.Line.GetShortestDistance(line, new Phaser.Geom.Point(x, y));
-    if (dist < 20) return false;
+// return shortest distance from point (px,py) to segment (x1,y1)-(x2,y2)
+function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+  const vx = x2 - x1;
+  const vy = y2 - y1;
+  const wx = px - x1;
+  const wy = py - y1;
+  const c1 = vx * wx + vy * wy;
+  if (c1 <= 0) {
+    const dx = px - x1; const dy = py - y1;
+    return Math.sqrt(dx*dx + dy*dy);
   }
+  const c2 = vx * vx + vy * vy;
+  if (c2 <= c1) {
+    const dx = px - x2; const dy = py - y2;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  const b = c1 / c2;
+  const bx = x1 + b * vx;
+  const by = y1 + b * vy;
+  const dx = px - bx; const dy = py - by;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function isCellBlocked(x, y) {
+  // blocked by path
+  for (let i = 0; i < pathPoints.length - 1; i++) {
+    const p1 = pathPoints[i];
+    const p2 = pathPoints[i + 1];
+    const dist = pointToSegmentDistance(x, y, p1.x, p1.y, p2.x, p2.y);
+    if (dist < 20) return true;
+  }
+  // blocked by existing towers
+  for (let t of towerGroup) if (Phaser.Math.Distance.Between(t.x, t.y, x, y) < 20) return true;
+  return false;
+}
+
+function canPlaceTowerAt(x, y) {
+  if (isCellBlocked(x, y)) return false;
   if (money < 50) return false;
-  for (let t of towerGroup) if (Phaser.Math.Distance.Between(t.x, t.y, x, y) < 20) return false;
   return true;
 }
 

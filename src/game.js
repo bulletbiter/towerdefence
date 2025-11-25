@@ -38,6 +38,11 @@ function create() {
   g.generateTexture('enemy', 20, 20);
   g.clear();
 
+  g.fillStyle(0x00cc44, 1);
+  g.fillCircle(14, 14, 14);
+  g.generateTexture('heavyEnemy', 28, 28);
+  g.clear();
+
   g.fillStyle(0x66ccff, 1);
   g.fillCircle(12, 12, 12);
   g.generateTexture('tower', 24, 24);
@@ -254,11 +259,26 @@ function spawnEnemy(scene) {
   enemyGroup.push(enemy);
 }
 
+function spawnHeavyEnemy(scene) {
+  const follower = scene.add.follower(path, pathPoints[0].x, pathPoints[0].y, 'heavyEnemy');
+  const tween = follower.startFollow({ duration: 12000, rotateToPath: false, onComplete: () => {} });
+  const enemy = { sprite: follower, hp: 90, active: true, tween: tween };
+  enemyGroup.push(enemy);
+}
+
 function startWave() {
   wave += 1;
   ui.waveText.setText(`Wave: ${wave}`);
   const count = 5 + wave * 2;
-  for (let i = 0; i < count; i++) this.time.delayedCall(i * 600, () => spawnEnemy(this));
+  let enemyIndex = 0;
+  for (let i = 0; i < count; i++) {
+    const isHeavy = wave > 1 && enemyIndex % 5 === 4; // spawn heavy every 5th enemy, starting wave 2
+    this.time.delayedCall(i * 600, () => {
+      if (isHeavy) spawnHeavyEnemy(this);
+      else spawnEnemy(this);
+    });
+    enemyIndex++;
+  }
 }
 
 function resetGame() {

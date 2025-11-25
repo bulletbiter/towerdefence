@@ -23,6 +23,7 @@ let ui = {};
 let gridSize = 40;
 let mapCols, mapRows;
 let path;
+let gameOver = false;
 
 function preload() {
   // textures generated at runtime
@@ -81,6 +82,7 @@ function create() {
 
   // place tower on click
   this.input.on('pointerdown', (pointer) => {
+    if (gameOver) return; // prevent placing towers after game over
     const wx = Math.floor(pointer.x / gridSize) * gridSize + gridSize/2;
     const wy = Math.floor(pointer.y / gridSize) * gridSize + gridSize/2;
     if (canPlaceTowerAt(wx, wy)) placeTower.call(this, wx, wy);
@@ -94,17 +96,25 @@ function create() {
 }
 
 function update(time, delta) {
+  if (gameOver) return; // pause all game updates if game over
+  
   // remove enemies that reached end handled by follower
   for (let i = enemyGroup.length - 1; i >= 0; i--) {
     const e = enemyGroup[i];
     if (!e.active) continue;
-    if (e.sprite.pathTween && e.sprite.pathTween.isRunning && e.sprite.pathTween.getProgress() >= 1) {
+    // check if enemy reached end of path (last point)
+    const endPoint = pathPoints[pathPoints.length - 1];
+    const distToEnd = Phaser.Math.Distance.Between(e.sprite.x, e.sprite.y, endPoint.x, endPoint.y);
+    if (distToEnd < 30) {
       e.active = false;
       e.sprite.destroy();
       enemyGroup.splice(i, 1);
       lives -= 1;
       ui.livesText.setText(`Lives: ${lives}`);
-      if (lives <= 0) ui.waveText.setText('Game Over');
+      if (lives <= 0) {
+        endGame.call(this);
+        return;
+      }
     }
   }
 
@@ -177,9 +187,8 @@ function placeTower(x, y) {
 
 function spawnEnemy(scene) {
   const follower = scene.add.follower(path, pathPoints[0].x, pathPoints[0].y, 'enemy');
-  follower.startFollow({ duration: 8000, rotateToPath: false });
-  // store reference to tween progress (not directly exposed), use follower's pathTween
-  const enemy = { sprite: follower, hp: 30, active: true };
+  const tween = follower.startFollow({ duration: 8000, rotateToPath: false, onComplete: () => {} });
+  const enemy = { sprite: follower, hp: 30, active: true, tween: tween };
   enemyGroup.push(enemy);
 }
 
@@ -195,6 +204,7 @@ function resetGame() {
   for (let e of enemyGroup) e.sprite.destroy();
   for (let t of towerGroup) t.sprite.destroy();
   for (let b of bulletGroup) b.sprite.destroy();
+  if (ui.gameOverScreen) ui.gameOverScreen.destroy();
   
   // reset state
   enemyGroup = [];
@@ -203,11 +213,23 @@ function resetGame() {
   money = 100;
   lives = 10;
   wave = 0;
+  gameOver = false;
   
   // update UI
   ui.moneyText.setText(`Money: ${money}`);
   ui.livesText.setText(`Lives: ${lives}`);
   ui.waveText.setText(`Wave: ${wave}`);
+}
+
+function endGame() {
+  gameOver = true;
+  // create game over screen
+  const gameOverScreen = this.add.rectangle(config.width / 2, config.height / 2, config.width, config.height, 0x000000, 0.8);
+  gameOverScreen.setDepth(100);
+  const gameOverText = this.add.text(config.width / 2, config.height / 2 - 40, 'GAME OVER', { font: '48px sans-serif', fill: '#ff3333' }).setOrigin(0.5, 0.5).setDepth(101);
+  const finalScoreText = this.add.text(config.width / 2, config.height / 2 + 20, `Final Wave: ${wave}`, { font: '24px sans-serif', fill: '#fff' }).setOrigin(0.5, 0.5).setDepth(101);
+  const resetPromptText = this.add.text(config.width / 2, config.height / 2 + 80, 'Click Reset to Play Again', { font: '18px sans-serif', fill: '#aaa' }).setOrigin(0.5, 0.5).setDepth(101);
+  ui.gameOverScreen = gameOverScreen;
 }
 
 function findNearestEnemyInRange(tower, range) {

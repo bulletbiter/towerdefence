@@ -74,8 +74,10 @@ function create() {
   ui.moneyText = this.add.text(8, 8, `Money: ${money}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
   ui.livesText = this.add.text(8, 28, `Lives: ${lives}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
   ui.waveText = this.add.text(8, 48, `Wave: ${wave}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
-  ui.startText = this.add.text(660, 8, 'Start Wave', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setInteractive();
+  ui.startText = this.add.text(600, 8, 'Start Wave', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setInteractive();
   ui.startText.on('pointerdown', () => startWave.call(this));
+  ui.resetText = this.add.text(710, 8, 'Reset', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#aa2222' }).setPadding(8).setInteractive();
+  ui.resetText.on('pointerdown', () => resetGame.call(this));
 
   // place tower on click
   this.input.on('pointerdown', (pointer) => {
@@ -188,6 +190,26 @@ function startWave() {
   for (let i = 0; i < count; i++) this.time.delayedCall(i * 600, () => spawnEnemy(this));
 }
 
+function resetGame() {
+  // clear all sprites
+  for (let e of enemyGroup) e.sprite.destroy();
+  for (let t of towerGroup) t.sprite.destroy();
+  for (let b of bulletGroup) b.sprite.destroy();
+  
+  // reset state
+  enemyGroup = [];
+  towerGroup = [];
+  bulletGroup = [];
+  money = 100;
+  lives = 10;
+  wave = 0;
+  
+  // update UI
+  ui.moneyText.setText(`Money: ${money}`);
+  ui.livesText.setText(`Lives: ${lives}`);
+  ui.waveText.setText(`Wave: ${wave}`);
+}
+
 function findNearestEnemyInRange(tower, range) {
   let best = null; let bestDist = 9999;
   for (let e of enemyGroup) {
@@ -205,6 +227,6 @@ function shootBullet(tower, target) {
   const vx = Math.cos(angle) * speed;
   const vy = Math.sin(angle) * speed;
   const bSprite = this.add.image(sx, sy, 'bullet');
-  const bullet = { sprite: bSprite, vx, vy, life: 2000, damage: 10 };
+  const bullet = { sprite: bSprite, vx, vy, life: 2000, damage: 30 };
   bulletGroup.push(bullet);
 }

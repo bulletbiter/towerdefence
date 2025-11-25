@@ -24,6 +24,7 @@ let gridSize = 40;
 let mapCols, mapRows;
 let path;
 let gameOver = false;
+let topBarHeight = 64;
 
 function preload() {
   // textures generated at runtime
@@ -48,7 +49,7 @@ function create() {
   g.destroy();
 
   mapCols = Math.floor(config.width / gridSize);
-  mapRows = Math.floor(config.height / gridSize);
+  mapRows = Math.floor((config.height - topBarHeight) / gridSize);
 
   // simple hardcoded path
   pathPoints = [
@@ -71,28 +72,33 @@ function create() {
   path = this.add.path(pathPoints[0].x, pathPoints[0].y);
   for (let i = 1; i < pathPoints.length; i++) path.lineTo(pathPoints[i].x, pathPoints[i].y);
 
-  // UI
-  ui.moneyText = this.add.text(8, 8, `Money: ${money}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
-  ui.livesText = this.add.text(8, 28, `Lives: ${lives}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
-  ui.waveText = this.add.text(8, 48, `Wave: ${wave}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
-  ui.startText = this.add.text(600, 8, 'Start Wave', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setInteractive();
+  // top bar background
+  const topBar = this.add.rectangle(config.width / 2, topBarHeight / 2, config.width, topBarHeight, 0x0e0e0e, 1).setDepth(4);
+
+  // UI (placed in top bar)
+  ui.moneyText = this.add.text(12, 18, `Money: ${money}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
+  ui.livesText = this.add.text(140, 18, `Lives: ${lives}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
+  ui.waveText = this.add.text(260, 18, `Wave: ${wave}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
+  ui.startText = this.add.text(600, 18, 'Start Wave', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setInteractive().setDepth(10);
   ui.startText.on('pointerdown', () => startWave.call(this));
-  ui.resetText = this.add.text(710, 8, 'Reset', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#aa2222' }).setPadding(8).setInteractive();
+  ui.resetText = this.add.text(710, 18, 'Reset', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#aa2222' }).setPadding(8).setInteractive().setDepth(10);
   ui.resetText.on('pointerdown', () => resetGame.call(this));
 
-  // place tower on click
+  // place tower on click (only on game grid, not the top bar)
   this.input.on('pointerdown', (pointer) => {
     if (gameOver) return; // prevent placing towers after game over
+    if (pointer.y < topBarHeight) return; // clicks on top bar should not place towers
     const wx = Math.floor(pointer.x / gridSize) * gridSize + gridSize/2;
-    const wy = Math.floor(pointer.y / gridSize) * gridSize + gridSize/2;
+    const row = Math.floor((pointer.y - topBarHeight) / gridSize);
+    const wy = topBarHeight + row * gridSize + gridSize/2;
     if (canPlaceTowerAt(wx, wy)) placeTower.call(this, wx, wy);
   });
 
-  // subtle grid
+  // subtle grid (starts below the top bar)
   const gridG = this.add.graphics();
   gridG.lineStyle(1, 0x222222, 1);
-  for (let i = 0; i <= mapCols; i++) gridG.strokeLineShape(new Phaser.Geom.Line(i*gridSize, 0, i*gridSize, config.height));
-  for (let j = 0; j <= mapRows; j++) gridG.strokeLineShape(new Phaser.Geom.Line(0, j*gridSize, config.width, j*gridSize));
+  for (let i = 0; i <= mapCols; i++) gridG.strokeLineShape(new Phaser.Geom.Line(i*gridSize, topBarHeight, i*gridSize, config.height));
+  for (let j = 0; j <= mapRows; j++) gridG.strokeLineShape(new Phaser.Geom.Line(0, topBarHeight + j*gridSize, config.width, topBarHeight + j*gridSize));
 }
 
 function update(time, delta) {

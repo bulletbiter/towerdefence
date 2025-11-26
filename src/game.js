@@ -28,6 +28,8 @@ let topBarHeight = 64;
 
 function preload() {
   // textures generated at runtime
+  // load turret sprite for towers
+  this.load.image('turret', 'src/assets/tank_blue.png');
 }
 
 function create() {
@@ -57,6 +59,13 @@ function create() {
   g.fillCircle(4, 4, 4);
   g.generateTexture('bullet', 8, 8);
   g.destroy();
+
+  // debug: log whether external turret texture loaded
+  if (!this.textures.exists('turret')) {
+    console.warn('turret texture not found at preload-time: src/assets/tank_blue.png');
+  } else {
+    console.log('turret texture loaded');
+  }
 
   mapCols = Math.floor(config.width / gridSize);
   mapRows = Math.floor((config.height - topBarHeight) / gridSize);
@@ -252,8 +261,16 @@ function placeTower(x, y) {
   if (money < 50) return;
   money -= 50;
   ui.moneyText.setText(`Money: ${money}`);
-  const sprite = this.add.image(x, y, 'tower');
-  const tower = { sprite, x, y, range: 120, fireRate: 600, cooldown: 0 };
+  // use turret sprite if loaded, fall back to generated 'tower'
+  const tex = this.textures.exists('turret') ? 'turret' : 'tower';
+  if (tex === 'tower') console.warn('Using fallback generated tower texture (turret image not available)');
+  const sprite = this.add.image(x, y, tex).setDepth(5);
+  sprite.setOrigin(0.5, 0.5);
+  // ensure turret fits the grid cell
+  try { sprite.setDisplaySize(gridSize - 8, gridSize - 8); } catch (e) {}
+  // If your turret image points down by default, apply a -90° offset so
+  // setting rotation to the angle (radians) aims the sprite correctly.
+  const tower = { sprite, x, y, range: 120, fireRate: 600, cooldown: 0, rotationOffset: -Math.PI/2 };
   towerGroup.push(tower);
 }
 
@@ -341,6 +358,11 @@ function shootBullet(tower, target) {
   const sx = tower.x; const sy = tower.y;
   const tx = target.sprite.x; const ty = target.sprite.y;
   const angle = Math.atan2(ty - sy, tx - sx);
+  // rotate turret sprite to face target (Phaser rotation uses radians)
+  if (tower.sprite && tower.sprite.setRotation) {
+    const offset = typeof tower.rotationOffset === 'number' ? tower.rotationOffset : 0;
+    tower.sprite.setRotation(angle + offset);
+  }
   const speed = 300;
   const vx = Math.cos(angle) * speed;
   const vy = Math.sin(angle) * speed;

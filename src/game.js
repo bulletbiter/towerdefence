@@ -38,8 +38,8 @@ function preload() {
   // textures generated at runtime
   // load turret sprite for towers
   this.load.image('turret', 'src/assets/tank_blue.png');
-  // load terrain tileset (64x64 tiles)
-  this.load.image('terrain', 'src/assets/terrainTiles_default.png');
+  // load terrain tileset (40x40 tiles, pre-scaled)
+  this.load.image('terrain', 'src/assets/terrainTiles_default_40.png');
 }
 
 function create() {
@@ -105,7 +105,7 @@ function create() {
 
   // create tilemap layer for terrain tiles along path
   if (this.textures.exists('terrain')) {
-    //createPathTilemap.call(this, pixelPathPoints);
+    createPathTilemap.call(this, pathPoints);
   }
 
   // path for followers (use pixel coords)
@@ -296,7 +296,7 @@ function placeTower(x, y) {
   // use turret sprite if loaded, fall back to generated 'tower'
   const tex = this.textures.exists('turret') ? 'turret' : 'tower';
   if (tex === 'tower') console.warn('Using fallback generated tower texture (turret image not available)');
-  const sprite = this.add.image(x, y, tex).setDepth(5);
+  const sprite = this.add.image(x, y, tex).setDepth(3);
   sprite.setOrigin(0.5, 0.5);
   // ensure turret fits the grid cell
   try { sprite.setDisplaySize(gridSize - 8, gridSize - 8); } catch (e) {}
@@ -309,6 +309,7 @@ function placeTower(x, y) {
 function spawnEnemy(scene) {
   const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
   const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'enemy');
+  follower.setDepth(2); // above terrain
   const tween = follower.startFollow({ duration: 8000, rotateToPath: false, onComplete: () => {} });
   const enemy = { sprite: follower, hp: 30, active: true, tween: tween };
   enemyGroup.push(enemy);
@@ -317,6 +318,7 @@ function spawnEnemy(scene) {
 function spawnHeavyEnemy(scene) {
   const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
   const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'heavyEnemy');
+  follower.setDepth(2); // above terrain
   const tween = follower.startFollow({ duration: 12000, rotateToPath: false, onComplete: () => {} });
   const enemy = { sprite: follower, hp: 90, active: true, tween: tween };
   enemyGroup.push(enemy);
@@ -325,6 +327,7 @@ function spawnHeavyEnemy(scene) {
 function spawnFastEnemy(scene) {
   const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
   const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'fastEnemy');
+  follower.setDepth(2); // above terrain
   const tween = follower.startFollow({ duration: 6000, rotateToPath: false, onComplete: () => {} });
   const enemy = { sprite: follower, hp: 60, active: true, tween: tween };
   enemyGroup.push(enemy);
@@ -381,52 +384,52 @@ function endGame() {
 }
 
 function createPathTilemap(pathPoints) {
-  // Create a tilemap with tile size 64x64 (terrain tileset size)
-  // Then scale sprites to match our gridSize
-  const tileSize = 64;
-  const mapWidth = Math.ceil(config.width / tileSize);
-  const mapHeight = Math.ceil(config.height / tileSize);
+  // Create a tilemap that matches our grid system
+  // Use our grid dimensions directly
+  const map = this.make.tilemap({ 
+    width: mapCols, 
+    height: mapRows, 
+    tileWidth: gridSize, 
+    tileHeight: gridSize 
+  });
   
-  const map = this.make.tilemap({ width: mapWidth, height: mapHeight, tileWidth: tileSize, tileHeight: tileSize });
-  const tileset = map.addTilesetImage('terrain', 'terrain', tileSize, tileSize);
+  // Add tileset - terrain tiles are already 40x40, matching our grid
+  const tileset = map.addTilesetImage('terrain', 'terrain', gridSize, gridSize);
   const layer = map.createBlankLayer('path', tileset);
   
-  // place tiles along each path segment
+  // Position the layer to start below the top bar
+  layer.setPosition(0, topBarHeight);
+  layer.setDepth(0); // behind everything else
+  
+  // pathPoints are in grid coordinates (col, row), so we can use them directly
   for (let i = 0; i < pathPoints.length - 1; i++) {
-    const p1 = pathPoints[i];
-    const p2 = pathPoints[i + 1];
+    const p1 = pathPoints[i]; // {col, row}
+    const p2 = pathPoints[i + 1]; // {col, row}
     
-    // determine if vertical or horizontal
-    const isVertical = Math.abs(p1.x - p2.x) < 1; // same x = vertical
-    const isHorizontal = Math.abs(p1.y - p2.y) < 1; // same y = horizontal
+    // determine direction
+    const isVertical = p1.col === p2.col; // same column = vertical movement
+    const isHorizontal = p1.row === p2.row; // same row = horizontal movement
     
-    // tile indices: (1,0) for vertical, (2,0) for horizontal
-    const tileX = isVertical ? 1 : 2;
-    const tileY = 0;
-    const tileIndex = tileset.getTileData(tileX, tileY)?.index || 0;
+    // tile indices from terrain tileset: assume (1,0) for vertical path, (2,0) for horizontal
+    const tileIndex = isVertical ? 1 : 2;
     
-    // place tiles along the segment
+    // place tiles along the segment using grid coordinates
     if (isVertical) {
-      const minY = Math.min(p1.y, p2.y);
-      const maxY = Math.max(p1.y, p2.y);
-      const tx = Math.round(p1.x / tileSize);
-      for (let ty = Math.ceil(minY / tileSize); ty <= Math.floor(maxY / tileSize); ty++) {
-        map.putTileAt(tileIndex, tx, ty, false, layer);
+      const minRow = Math.min(p1.row, p2.row);
+      const maxRow = Math.max(p1.row, p2.row);
+      for (let row = minRow; row <= maxRow; row++) {
+        map.putTileAt(tileIndex, p1.col, row, false, layer);
       }
     } else if (isHorizontal) {
-      const minX = Math.min(p1.x, p2.x);
-      const maxX = Math.max(p1.x, p2.x);
-      const ty = Math.round(p1.y / tileSize);
-      for (let tx = Math.ceil(minX / tileSize); tx <= Math.floor(maxX / tileSize); tx++) {
-        map.putTileAt(tileIndex, tx, ty, false, layer);
+      const minCol = Math.min(p1.col, p2.col);
+      const maxCol = Math.max(p1.col, p2.col);
+      for (let col = minCol; col <= maxCol; col++) {
+        map.putTileAt(tileIndex, col, p1.row, false, layer);
       }
     }
   }
   
-  // scale the layer sprites to match our grid size (40px)
-  const scale = gridSize / tileSize;
-  layer.setScale(scale);
-  layer.setDepth(1);
+  // No scaling needed - tiles are already the correct size
 }
 
 function findNearestEnemyInRange(tower, range) {
@@ -450,7 +453,7 @@ function shootBullet(tower, target) {
   const speed = 300;
   const vx = Math.cos(angle) * speed;
   const vy = Math.sin(angle) * speed;
-  const bSprite = this.add.image(sx, sy, 'bullet');
+  const bSprite = this.add.image(sx, sy, 'bullet').setDepth(4); // above everything
   const bullet = { sprite: bSprite, vx, vy, life: 2000, damage: 30 };
   bulletGroup.push(bullet);
 }

@@ -26,10 +26,20 @@ let path;
 let gameOver = false;
 let topBarHeight = 64;
 
+// helper: convert grid (col, row) to pixel (x, y)
+function gridToPixel(col, row) {
+  return {
+    x: col * gridSize + gridSize / 2,
+    y: topBarHeight + row * gridSize + gridSize / 2
+  };
+}
+
 function preload() {
   // textures generated at runtime
   // load turret sprite for towers
   this.load.image('turret', 'src/assets/tank_blue.png');
+  // load terrain tileset (64x64 tiles)
+  this.load.image('terrain', 'src/assets/terrainTiles_default.png');
 }
 
 function create() {
@@ -70,26 +80,38 @@ function create() {
   mapCols = Math.floor(config.width / gridSize);
   mapRows = Math.floor((config.height - topBarHeight) / gridSize);
 
-  // simple hardcoded path (aligned to grid cell midpoints)
+  // path using grid coordinates (col, row) - much cleaner
+  // note: row is relative to playable area (below topBar)
   pathPoints = [
-    { x: 20, y: 300 },
-    { x: 220, y: 300 },
-    { x: 220, y: 120 },
-    { x: 620, y: 120 },
-    { x: 620, y: 460 },
-    { x: 780, y: 460 }
+    { col: 0, row: 7 },
+    { col: 5, row: 7 },
+    { col: 5, row: 3 },
+    { col: 15, row: 3 },
+    { col: 15, row: 11 },
+    { col: 19, row: 11 }
   ];
 
-  // draw path
+  // draw path using pixel coords
   const graphics = this.add.graphics();
   graphics.lineStyle(6, 0x444444, 1);
   for (let i = 0; i < pathPoints.length - 1; i++) {
-    graphics.strokeLineShape(new Phaser.Geom.Line(pathPoints[i].x, pathPoints[i].y, pathPoints[i+1].x, pathPoints[i+1].y));
+    const p1 = gridToPixel(pathPoints[i].col, pathPoints[i].row);
+    const p2 = gridToPixel(pathPoints[i + 1].col, pathPoints[i + 1].row);
+    graphics.strokeLineShape(new Phaser.Geom.Line(p1.x, p1.y, p2.x, p2.y));
   }
 
-  // path for followers
-  path = this.add.path(pathPoints[0].x, pathPoints[0].y);
-  for (let i = 1; i < pathPoints.length; i++) path.lineTo(pathPoints[i].x, pathPoints[i].y);
+  // convert grid pathPoints to pixel pathPoints for tilemap and followers
+  const pixelPathPoints = pathPoints.map(p => gridToPixel(p.col, p.row));
+
+  // create tilemap layer for terrain tiles along path
+  if (this.textures.exists('terrain')) {
+    //createPathTilemap.call(this, pixelPathPoints);
+  }
+
+  // path for followers (use pixel coords)
+  const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
+  path = this.add.path(startPixel.x, startPixel.y);
+  for (let i = 1; i < pixelPathPoints.length; i++) path.lineTo(pixelPathPoints[i].x, pixelPathPoints[i].y);
 
   // top bar background
   const topBar = this.add.rectangle(config.width / 2, topBarHeight / 2, config.width, topBarHeight, 0x0e0e0e, 1).setDepth(4);
@@ -155,8 +177,12 @@ function update(time, delta) {
     const e = enemyGroup[i];
     if (!e.active) continue;
     // check if enemy reached end of path (last point)
-    const endPoint = pathPoints[pathPoints.length - 1];
-    const distToEnd = Phaser.Math.Distance.Between(e.sprite.x, e.sprite.y, endPoint.x, endPoint.y);
+    const lastPathPoint = pathPoints[pathPoints.length - 1];
+    const endPixel = {
+      x: lastPathPoint.col * gridSize + gridSize / 2,
+      y: topBarHeight + lastPathPoint.row * gridSize + gridSize / 2
+    };
+    const distToEnd = Phaser.Math.Distance.Between(e.sprite.x, e.sprite.y, endPixel.x, endPixel.y);
     if (distToEnd < 30) {
       e.active = false;
       e.sprite.destroy();
@@ -239,10 +265,16 @@ function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
 }
 
 function isCellBlocked(x, y) {
-  // blocked by path
+  // blocked by path (convert grid pathPoints to pixels for distance check)
   for (let i = 0; i < pathPoints.length - 1; i++) {
-    const p1 = pathPoints[i];
-    const p2 = pathPoints[i + 1];
+    const p1 = {
+      x: pathPoints[i].col * gridSize + gridSize / 2,
+      y: topBarHeight + pathPoints[i].row * gridSize + gridSize / 2
+    };
+    const p2 = {
+      x: pathPoints[i + 1].col * gridSize + gridSize / 2,
+      y: topBarHeight + pathPoints[i + 1].row * gridSize + gridSize / 2
+    };
     const dist = pointToSegmentDistance(x, y, p1.x, p1.y, p2.x, p2.y);
     if (dist < 20) return true;
   }
@@ -275,21 +307,24 @@ function placeTower(x, y) {
 }
 
 function spawnEnemy(scene) {
-  const follower = scene.add.follower(path, pathPoints[0].x, pathPoints[0].y, 'enemy');
+  const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
+  const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'enemy');
   const tween = follower.startFollow({ duration: 8000, rotateToPath: false, onComplete: () => {} });
   const enemy = { sprite: follower, hp: 30, active: true, tween: tween };
   enemyGroup.push(enemy);
 }
 
 function spawnHeavyEnemy(scene) {
-  const follower = scene.add.follower(path, pathPoints[0].x, pathPoints[0].y, 'heavyEnemy');
+  const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
+  const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'heavyEnemy');
   const tween = follower.startFollow({ duration: 12000, rotateToPath: false, onComplete: () => {} });
   const enemy = { sprite: follower, hp: 90, active: true, tween: tween };
   enemyGroup.push(enemy);
 }
 
 function spawnFastEnemy(scene) {
-  const follower = scene.add.follower(path, pathPoints[0].x, pathPoints[0].y, 'fastEnemy');
+  const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
+  const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'fastEnemy');
   const tween = follower.startFollow({ duration: 6000, rotateToPath: false, onComplete: () => {} });
   const enemy = { sprite: follower, hp: 60, active: true, tween: tween };
   enemyGroup.push(enemy);
@@ -343,6 +378,55 @@ function endGame() {
   const finalScoreText = this.add.text(config.width / 2, config.height / 2 + 20, `Final Wave: ${wave}`, { font: '24px sans-serif', fill: '#fff' }).setOrigin(0.5, 0.5).setDepth(101);
   const resetPromptText = this.add.text(config.width / 2, config.height / 2 + 80, 'Click Reset to Play Again', { font: '18px sans-serif', fill: '#aaa' }).setOrigin(0.5, 0.5).setDepth(101);
   ui.gameOverScreen = gameOverScreen;
+}
+
+function createPathTilemap(pathPoints) {
+  // Create a tilemap with tile size 64x64 (terrain tileset size)
+  // Then scale sprites to match our gridSize
+  const tileSize = 64;
+  const mapWidth = Math.ceil(config.width / tileSize);
+  const mapHeight = Math.ceil(config.height / tileSize);
+  
+  const map = this.make.tilemap({ width: mapWidth, height: mapHeight, tileWidth: tileSize, tileHeight: tileSize });
+  const tileset = map.addTilesetImage('terrain', 'terrain', tileSize, tileSize);
+  const layer = map.createBlankLayer('path', tileset);
+  
+  // place tiles along each path segment
+  for (let i = 0; i < pathPoints.length - 1; i++) {
+    const p1 = pathPoints[i];
+    const p2 = pathPoints[i + 1];
+    
+    // determine if vertical or horizontal
+    const isVertical = Math.abs(p1.x - p2.x) < 1; // same x = vertical
+    const isHorizontal = Math.abs(p1.y - p2.y) < 1; // same y = horizontal
+    
+    // tile indices: (1,0) for vertical, (2,0) for horizontal
+    const tileX = isVertical ? 1 : 2;
+    const tileY = 0;
+    const tileIndex = tileset.getTileData(tileX, tileY)?.index || 0;
+    
+    // place tiles along the segment
+    if (isVertical) {
+      const minY = Math.min(p1.y, p2.y);
+      const maxY = Math.max(p1.y, p2.y);
+      const tx = Math.round(p1.x / tileSize);
+      for (let ty = Math.ceil(minY / tileSize); ty <= Math.floor(maxY / tileSize); ty++) {
+        map.putTileAt(tileIndex, tx, ty, false, layer);
+      }
+    } else if (isHorizontal) {
+      const minX = Math.min(p1.x, p2.x);
+      const maxX = Math.max(p1.x, p2.x);
+      const ty = Math.round(p1.y / tileSize);
+      for (let tx = Math.ceil(minX / tileSize); tx <= Math.floor(maxX / tileSize); tx++) {
+        map.putTileAt(tileIndex, tx, ty, false, layer);
+      }
+    }
+  }
+  
+  // scale the layer sprites to match our grid size (40px)
+  const scale = gridSize / tileSize;
+  layer.setScale(scale);
+  layer.setDepth(1);
 }
 
 function findNearestEnemyInRange(tower, range) {

@@ -400,6 +400,24 @@ function createPathTilemap(pathPoints) {
   // Position the layer to start below the top bar
   layer.setPosition(0, topBarHeight);
   layer.setDepth(0); // behind everything else
+
+  // fill entire grid with grass tiles using (0,0) and (0,1)
+  // compute tiles-per-row from the loaded texture so we can reference (0,1)
+  let tilesPerRow = 1;
+  try {
+    const tex = this.textures.get('terrain');
+    const src = tex && tex.source && tex.source[0] && tex.source[0].image;
+    if (src && src.width && gridSize > 0) tilesPerRow = Math.floor(src.width / gridSize);
+  } catch (e) {}
+
+  const grassA = 0; // tile at (0,0)
+  const grassB = tilesPerRow; // tile at (0,1)
+  for (let r = 0; r < mapRows; r++) {
+    for (let c = 0; c < mapCols; c++) {
+      const idx = ((c + r) % 2 === 0) ? grassA : grassB;
+      map.putTileAt(idx, c, r, false, layer);
+    }
+  }
   
   // pathPoints are in grid coordinates (col, row), so we can use them directly
   for (let i = 0; i < pathPoints.length - 1; i++) {

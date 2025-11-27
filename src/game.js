@@ -55,6 +55,12 @@ function create() {
   g.generateTexture('heavyEnemy', 28, 28);
   g.clear();
 
+  // big heavy enemy (boss-like) - larger & purple
+  g.fillStyle(0x8833ff, 1);
+  g.fillCircle(20, 20, 20);
+  g.generateTexture('bigHeavy', 40, 40);
+  g.clear();
+
   g.fillStyle(0xffcc00, 1);
   g.fillCircle(9, 9, 9);
   g.generateTexture('fastEnemy', 18, 18);
@@ -369,16 +375,30 @@ function spawnFastEnemy(scene) {
   enemyGroup.push(enemy);
 }
 
+function spawnBigHeavyEnemy(scene) {
+  const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
+  const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'bigHeavy');
+  follower.setDepth(2); // above terrain
+  // very slow, big HP
+  const tween = follower.startFollow({ duration: 16000, rotateToPath: false, onComplete: () => {} });
+  const enemy = { sprite: follower, hp: 300, active: true, tween: tween };
+  enemyGroup.push(enemy);
+}
+
 function startWave() {
   wave += 1;
   ui.waveText.setText(`Wave: ${wave}`);
   const count = 5 + wave * 2;
   let enemyIndex = 0;
   for (let i = 0; i < count; i++) {
-    const isHeavy = wave > 1 && enemyIndex % 5 === 4; // spawn heavy every 5th enemy, starting wave 2
-    const isFast = wave >= 3 && enemyIndex % 4 === 3; // spawn fast every 4th enemy starting wave 3
+    // big heavy has highest priority: spawn every 10th enemy from wave 7 onwards
+    const isBig = wave >= 7 && enemyIndex % 10 === 9;
+    // then older special types
+    const isHeavy = !isBig && wave > 1 && enemyIndex % 5 === 4; // spawn heavy every 5th enemy starting wave 2
+    const isFast = !isBig && wave >= 3 && enemyIndex % 4 === 3; // spawn fast every 4th enemy starting wave 3
     this.time.delayedCall(i * 600, () => {
-      if (isHeavy) spawnHeavyEnemy(this);
+      if (isBig) spawnBigHeavyEnemy(this);
+      else if (isHeavy) spawnHeavyEnemy(this);
       else if (isFast) spawnFastEnemy(this);
       else spawnEnemy(this);
     });

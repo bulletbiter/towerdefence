@@ -206,6 +206,10 @@ function update(time, delta) {
         t.cooldown = t.fireRate;
       }
     }
+    // keep the small level label positioned above the tower
+    try {
+      if (t.lvText) t.lvText.setPosition(t.x, t.y - (gridSize/2) - 8);
+    } catch (e) {}
   }
 
   // bullets
@@ -226,7 +230,13 @@ function update(time, delta) {
           e.active = false;
           e.sprite.destroy();
           enemyGroup.splice(j, 1);
-          money += 10;
+          // reward based on enemy type: basic red 'enemy' gives 5, others give 10
+          let reward = 10;
+          try {
+            const key = e.sprite.texture && e.sprite.texture.key;
+            if (key === 'enemy') reward = 5;
+          } catch (err) {}
+          money += reward;
           ui.moneyText.setText(`Money: ${money}`);
         }
         hit = true;
@@ -300,9 +310,35 @@ function placeTower(x, y) {
   sprite.setOrigin(0.5, 0.5);
   // ensure turret fits the grid cell
   try { sprite.setDisplaySize(gridSize - 8, gridSize - 8); } catch (e) {}
+  // make towers interactive so we can upgrade them
+  try { sprite.setInteractive({ useHandCursor: true }); } catch (e) {}
+
   // If your turret image points down by default, apply a -90° offset so
   // setting rotation to the angle (radians) aims the sprite correctly.
-  const tower = { sprite, x, y, range: 120, fireRate: 600, cooldown: 0, rotationOffset: -Math.PI/2 };
+  const tower = { sprite, x, y, range: 120, fireRate: 600, cooldown: 0, rotationOffset: -Math.PI/2, level: 1, damage: 30 };
+
+  // level label (small text) above tower
+  try {
+    tower.lvText = this.add.text(x, y - (gridSize/2) - 8, 'LV1', { font: '12px sans-serif', fill: '#fff' }).setOrigin(0.5, 0.5).setDepth(6);
+  } catch (e) {}
+
+  // upgrade to level 2 on click (cost 150)
+  if (sprite.on) {
+    sprite.on('pointerdown', (pointer) => {
+      try { pointer.event.stopPropagation(); } catch (e) {}
+      if (tower.level >= 2) return;
+      if (money < 150) return; // not enough
+      money -= 150;
+      ui.moneyText.setText(`Money: ${money}`);
+      tower.level = 2;
+      tower.damage = 60;
+      // make it shoot faster
+      tower.fireRate = Math.max(200, tower.fireRate - 200);
+      // visual - tint to gold and update level label
+      try { tower.sprite.setTint(0xffcc00); } catch (e) {}
+      try { if (tower.lvText) tower.lvText.setText('LV2'); } catch (e) {}
+    });
+  }
   towerGroup.push(tower);
 }
 
@@ -353,7 +389,10 @@ function startWave() {
 function resetGame() {
   // clear all sprites
   for (let e of enemyGroup) e.sprite.destroy();
-  for (let t of towerGroup) t.sprite.destroy();
+  for (let t of towerGroup) {
+    if (t.sprite) t.sprite.destroy();
+    if (t.lvText) t.lvText.destroy();
+  }
   for (let b of bulletGroup) b.sprite.destroy();
   if (ui.gameOverScreen) ui.gameOverScreen.destroy();
   
@@ -472,6 +511,7 @@ function shootBullet(tower, target) {
   const vx = Math.cos(angle) * speed;
   const vy = Math.sin(angle) * speed;
   const bSprite = this.add.image(sx, sy, 'bullet').setDepth(4); // above everything
-  const bullet = { sprite: bSprite, vx, vy, life: 2000, damage: 30 };
+  // use tower-specific damage when firing
+  const bullet = { sprite: bSprite, vx, vy, life: 2000, damage: (tower && tower.damage) ? tower.damage : 30 };
   bulletGroup.push(bullet);
 }

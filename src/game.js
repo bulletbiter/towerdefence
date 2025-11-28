@@ -130,13 +130,26 @@ function create() {
   ui.moneyText = this.add.text(12, 18, `Money: ${money}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
   ui.livesText = this.add.text(140, 18, `Lives: ${lives}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
   ui.waveText = this.add.text(260, 18, `Wave: ${wave}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
-  ui.startText = this.add.text(600, 18, 'Start Wave', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setInteractive().setDepth(10);
+  // move Start Wave left a bit so it doesn't overlap Reset
+  ui.startText = this.add.text(560, 18, 'Start Wave (W)', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setInteractive().setDepth(10);
   ui.startText.on('pointerdown', () => startWave.call(this));
   ui.resetText = this.add.text(710, 18, 'Reset (R)', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#aa2222' }).setPadding(8).setInteractive().setDepth(10);
   ui.resetText.on('pointerdown', () => resetGame.call(this));
 
   // keyboard shortcut: press R to reset the game
   this.input.keyboard.on('keydown-R', () => resetGame.call(this));
+  // keyboard shortcut: press W to start the next wave
+  this.input.keyboard.on('keydown-W', () => startWave.call(this));
+
+  // sell mode: top-bar button
+  ui.sellMode = false;
+  ui.sellText = this.add.text(480, 18, 'Sell', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#666' }).setPadding(8).setInteractive().setDepth(10);
+  ui.sellText.on('pointerdown', () => {
+    ui.sellMode = !ui.sellMode;
+    ui.sellText.setBackgroundColor(ui.sellMode ? '#ff8800' : '#666');
+  });
+  // keyboard shortcut: press S to toggle sell mode
+  this.input.keyboard.on('keydown-S', () => { ui.sellMode = !ui.sellMode; ui.sellText.setBackgroundColor(ui.sellMode ? '#ff8800' : '#666'); });
 
   // debug overlay for blocked placement cells
   ui.showBlocked = false;
@@ -344,6 +357,24 @@ function placeTower(x, y) {
       sprite.on('pointerdown', (pointer) => {
         try { pointer.event.stopPropagation(); } catch (e) {}
         if (gameOver) return;
+        // sell mode: remove tower and give sell reward
+        if (ui && ui.sellMode) {
+          // determine reward by level
+          let reward = 0;
+          if (tower.level === 1) reward = 50;
+          else if (tower.level === 2) reward = 200;
+          else if (tower.level === 3) reward = 600;
+          money += reward;
+          ui.moneyText.setText(`Money: ${money}`);
+          // remove tower from array and destroy visuals
+          const idx = towerGroup.indexOf(tower);
+          if (idx !== -1) towerGroup.splice(idx, 1);
+          try { if (tower.sprite) tower.sprite.destroy(); } catch (e) {}
+          try { if (tower.lvText) tower.lvText.destroy(); } catch (e) {}
+          // auto-exit sell mode after a successful sell
+          if (ui) { ui.sellMode = false; try { if (ui.sellText) ui.sellText.setBackgroundColor('#666'); } catch (e) {} }
+          return;
+        }
         // LV1 -> LV2
         if (tower.level === 1) {
           if (money < 150) {
@@ -372,7 +403,7 @@ function placeTower(x, y) {
           money -= 400;
           ui.moneyText.setText(`Money: ${money}`);
           tower.level = 3;
-          tower.damage = 60;
+          tower.damage = 90;
           // increase range and make much faster
           tower.range = (tower.range || 120) + 60; // +60 range
           tower.fireRate = 150; // faster fire rate

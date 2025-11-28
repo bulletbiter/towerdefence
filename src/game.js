@@ -219,7 +219,10 @@ function update(time, delta) {
       e.active = false;
       e.sprite.destroy();
       enemyGroup.splice(i, 1);
-      lives -= 1;
+      // boss enemies do much more damage if they reach the end
+      const textureKey = e.sprite && e.sprite.texture && e.sprite.texture.key;
+      const damage = (textureKey === 'bossBlack') ? 10 : 1;
+      lives -= damage;
       ui.livesText.setText(`Lives: ${lives}`);
       if (lives <= 0) {
         endGame.call(this);
@@ -467,7 +470,7 @@ function spawnBossEnemy(scene) {
   follower.setDepth(2); // above terrain
   // same speed as bigHeavy (very slow)
   const tween = follower.startFollow({ duration: 16000, rotateToPath: false, onComplete: () => {} });
-  const enemy = { sprite: follower, hp: 10000, active: true, tween: tween };
+  const enemy = { sprite: follower, hp: 15000, active: true, tween: tween };
   enemyGroup.push(enemy);
 }
 
@@ -527,6 +530,10 @@ function endGame() {
   const gameOverText = this.add.text(config.width / 2, config.height / 2 - 40, 'GAME OVER', { font: '48px sans-serif', fill: '#ff3333' }).setOrigin(0.5, 0.5).setDepth(101);
   const finalScoreText = this.add.text(config.width / 2, config.height / 2 + 20, `Final Wave: ${wave}`, { font: '24px sans-serif', fill: '#fff' }).setOrigin(0.5, 0.5).setDepth(101);
   const resetPromptText = this.add.text(config.width / 2, config.height / 2 + 80, 'Click Reset to Play Again', { font: '18px sans-serif', fill: '#aaa' }).setOrigin(0.5, 0.5).setDepth(101);
+  // add a Reset button to the game over screen (clickable and calls resetGame)
+  const goResetBtn = this.add.text(config.width / 2, config.height / 2 + 120, 'Reset', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setOrigin(0.5, 0.5).setDepth(102).setInteractive();
+  goResetBtn.on('pointerdown', () => resetGame.call(this));
+  ui.gameOverResetBtn = goResetBtn;
   ui.gameOverScreen = gameOverScreen;
 }
 

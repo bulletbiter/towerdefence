@@ -505,6 +505,18 @@ function createPathTilemap(pathPoints) {
       }
     }
   }
+
+  // overlay corner tiles for each turn (pathPoints has turns at internal points)
+  // desired corner tiles in order: (7,1), (4,1), (5,1), (6,1)
+  const cornerCoords = [ {x:6,y:1}, {x:3,y:1}, {x:4,y:1}, {x:5,y:1} ];
+  for (let k = 1; k < pathPoints.length - 1; k++) {
+    const p = pathPoints[k];
+    // compute frame index from tileset coords
+    const corner = cornerCoords[(k - 1) % cornerCoords.length];
+    const cornerIndex = (corner.y * tilesPerRow) + corner.x;
+    // replace tile at the corner cell
+    map.putTileAt(cornerIndex, p.col, p.row, false, layer);
+  }
   
   // No scaling needed - tiles are already the correct size
 }

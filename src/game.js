@@ -3,7 +3,7 @@
 const config = {
   type: Phaser.AUTO,
   width: 800,
-  height: 600,
+  height: 624,
   parent: 'game-container',
   backgroundColor: '#1a1a1a',
   physics: { default: 'arcade', arcade: { debug: false } },
@@ -132,8 +132,11 @@ function create() {
   ui.waveText = this.add.text(260, 18, `Wave: ${wave}`, { font: '16px sans-serif', fill: '#fff' }).setDepth(10);
   ui.startText = this.add.text(600, 18, 'Start Wave', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#2266aa' }).setPadding(8).setInteractive().setDepth(10);
   ui.startText.on('pointerdown', () => startWave.call(this));
-  ui.resetText = this.add.text(710, 18, 'Reset', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#aa2222' }).setPadding(8).setInteractive().setDepth(10);
+  ui.resetText = this.add.text(710, 18, 'Reset (R)', { font: '18px sans-serif', fill: '#fff', backgroundColor: '#aa2222' }).setPadding(8).setInteractive().setDepth(10);
   ui.resetText.on('pointerdown', () => resetGame.call(this));
+
+  // keyboard shortcut: press R to reset the game
+  this.input.keyboard.on('keydown-R', () => resetGame.call(this));
 
   // debug overlay for blocked placement cells
   ui.showBlocked = false;
@@ -403,7 +406,7 @@ function startWave() {
     const isBig = wave >= 7 && enemyIndex % 10 === 9;
     // then older special types
     const isHeavy = !isBig && wave > 1 && enemyIndex % 5 === 4; // spawn heavy every 5th enemy starting wave 2
-    const isFast = !isBig && wave >= 3 && enemyIndex % 4 === 3; // spawn fast every 4th enemy starting wave 3
+    const isFast = !isBig && wave >= 4 && enemyIndex % 4 === 3; // spawn fast every 4th enemy starting wave 4
     this.time.delayedCall(i * 600, () => {
       if (isBig) spawnBigHeavyEnemy(this);
       else if (isHeavy) spawnHeavyEnemy(this);
@@ -415,17 +418,17 @@ function startWave() {
 }
 
 function resetGame() {
-  // clear all sprites
-  for (let e of enemyGroup) e.sprite.destroy();
+  // Reset everything and restart the scene so timers/tweens are cleared
+  for (let e of enemyGroup) if (e.sprite) e.sprite.destroy();
   for (let t of towerGroup) {
     if (t.sprite) t.sprite.destroy();
     if (t.lvText) t.lvText.destroy();
   }
-  for (let b of bulletGroup) b.sprite.destroy();
+  for (let b of bulletGroup) if (b.sprite) b.sprite.destroy();
   for (let tr of treeGroup) if (tr.sprite) tr.sprite.destroy();
   if (ui.gameOverScreen) ui.gameOverScreen.destroy();
-  
-  // reset state
+
+  // clear arrays and reset values
   enemyGroup = [];
   towerGroup = [];
   bulletGroup = [];
@@ -434,11 +437,9 @@ function resetGame() {
   lives = 10;
   wave = 0;
   gameOver = false;
-  
-  // update UI
-  ui.moneyText.setText(`Money: ${money}`);
-  ui.livesText.setText(`Lives: ${lives}`);
-  ui.waveText.setText(`Wave: ${wave}`);
+
+  // restart the current Phaser scene — this clears any scheduled spawn timers
+  this.scene.restart();
 }
 
 function endGame() {

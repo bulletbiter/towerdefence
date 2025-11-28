@@ -15,6 +15,7 @@ const game = new Phaser.Game(config);
 let pathPoints;
 let enemyGroup = [];
 let towerGroup = [];
+let treeGroup = [];
 let bulletGroup = [];
 let money = 100;
 let lives = 10;
@@ -40,6 +41,9 @@ function preload() {
   this.load.image('turret', 'src/assets/tank_blue.png');
   // load terrain tileset (40x40 tiles, pre-scaled)
   this.load.image('terrain', 'src/assets/terrainTiles_default_40.png');
+  // load trees
+  this.load.image('treeLarge', 'src/assets/treeGreen_large.png');
+  this.load.image('treeSmall', 'src/assets/treeGreen_small.png');
 }
 
 function create() {
@@ -296,6 +300,10 @@ function isCellBlocked(x, y) {
   }
   // blocked by existing towers
   for (let t of towerGroup) if (Phaser.Math.Distance.Between(t.x, t.y, x, y) < 20) return true;
+  // blocked by trees at that cell
+  const col = Math.floor(x / gridSize);
+  const row = Math.floor((y - topBarHeight) / gridSize);
+  for (let tr of treeGroup) if (tr.col === col && tr.row === row) return true;
   return false;
 }
 
@@ -414,12 +422,14 @@ function resetGame() {
     if (t.lvText) t.lvText.destroy();
   }
   for (let b of bulletGroup) b.sprite.destroy();
+  for (let tr of treeGroup) if (tr.sprite) tr.sprite.destroy();
   if (ui.gameOverScreen) ui.gameOverScreen.destroy();
   
   // reset state
   enemyGroup = [];
   towerGroup = [];
   bulletGroup = [];
+  treeGroup = [];
   money = 100;
   lives = 10;
   wave = 0;
@@ -516,6 +526,32 @@ function createPathTilemap(pathPoints) {
     const cornerIndex = (corner.y * tilesPerRow) + corner.x;
     // replace tile at the corner cell
     map.putTileAt(cornerIndex, p.col, p.row, false, layer);
+  }
+
+  // randomly place trees on grass tiles (do not place on path cells)
+  treeGroup = []; // reset any previous tree state
+  if (this.textures.exists('treeLarge') && this.textures.exists('treeSmall')) {
+    for (let r = 0; r < mapRows; r++) {
+      for (let c = 0; c < mapCols; c++) {
+        const t = layer.getTileAt(c, r);
+        // only place trees on grass tiles (grassA or grassB)
+        if (!t) continue;
+        if (t.index !== grassA && t.index !== grassB) continue;
+        // probability: 8% large, 12% small
+        const roll = Math.random();
+        if (roll < 0.08) {
+          const pos = gridToPixel(c, r);
+          const s = this.add.image(pos.x, pos.y, 'treeLarge').setDepth(1);
+          try { s.setDisplaySize(gridSize, gridSize); } catch (e) {}
+          treeGroup.push({ sprite: s, col: c, row: r });
+        } else if (roll < 0.20) {
+          const pos = gridToPixel(c, r);
+          const s = this.add.image(pos.x, pos.y, 'treeSmall').setDepth(1);
+          try { s.setDisplaySize(gridSize - 8, gridSize - 8); } catch (e) {}
+          treeGroup.push({ sprite: s, col: c, row: r });
+        }
+      }
+    }
   }
   
   // No scaling needed - tiles are already the correct size

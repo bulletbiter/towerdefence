@@ -543,11 +543,43 @@ function createPathTilemap(pathPoints) {
           const pos = gridToPixel(c, r);
           const s = this.add.image(pos.x, pos.y, 'treeLarge').setDepth(1);
           try { s.setDisplaySize(gridSize, gridSize); } catch (e) {}
+          // interactive: allow chopping
+          try { s.setInteractive({ useHandCursor: true }); } catch (e) {}
+          s.on && s.on('pointerdown', (pointer) => {
+            try { pointer.event.stopPropagation(); } catch (e) {}
+            if (gameOver) return;
+            if (money < 50) {
+              // brief flash to indicate can't afford
+              try { s.setTint(0xff4444); setTimeout(() => s.clearTint(), 180); } catch (e) {}
+              return;
+            }
+            money -= 50;
+            ui.moneyText.setText(`Money: ${money}`);
+            // remove this tree from state and destroy sprite
+            const idx = treeGroup.findIndex(t => t.sprite === s);
+            if (idx >= 0) treeGroup.splice(idx, 1);
+            try { s.destroy(); } catch (e) {}
+          });
           treeGroup.push({ sprite: s, col: c, row: r });
         } else if (roll < 0.20) {
           const pos = gridToPixel(c, r);
           const s = this.add.image(pos.x, pos.y, 'treeSmall').setDepth(1);
           try { s.setDisplaySize(gridSize - 8, gridSize - 8); } catch (e) {}
+          // interactive: allow chopping
+          try { s.setInteractive({ useHandCursor: true }); } catch (e) {}
+          s.on && s.on('pointerdown', (pointer) => {
+            try { pointer.event.stopPropagation(); } catch (e) {}
+            if (gameOver) return;
+            if (money < 50) {
+              try { s.setTint(0xff4444); setTimeout(() => s.clearTint(), 180); } catch (e) {}
+              return;
+            }
+            money -= 50;
+            ui.moneyText.setText(`Money: ${money}`);
+            const idx = treeGroup.findIndex(t => t.sprite === s);
+            if (idx >= 0) treeGroup.splice(idx, 1);
+            try { s.destroy(); } catch (e) {}
+          });
           treeGroup.push({ sprite: s, col: c, row: r });
         }
       }

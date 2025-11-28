@@ -339,23 +339,51 @@ function placeTower(x, y) {
     tower.lvText = this.add.text(x, y - (gridSize/2) - 8, 'LV1', { font: '12px sans-serif', fill: '#fff' }).setOrigin(0.5, 0.5).setDepth(6);
   } catch (e) {}
 
-  // upgrade to level 2 on click (cost 150)
-  if (sprite.on) {
-    sprite.on('pointerdown', (pointer) => {
-      try { pointer.event.stopPropagation(); } catch (e) {}
-      if (tower.level >= 2) return;
-      if (money < 150) return; // not enough
-      money -= 150;
-      ui.moneyText.setText(`Money: ${money}`);
-      tower.level = 2;
-      tower.damage = 60;
-      // make it shoot faster
-      tower.fireRate = Math.max(200, tower.fireRate - 200);
-      // visual - tint to gold and update level label
-      try { tower.sprite.setTint(0xffcc00); } catch (e) {}
-      try { if (tower.lvText) tower.lvText.setText('LV2'); } catch (e) {}
-    });
-  }
+    // upgrade to level 2 on click (cost 150)
+    if (sprite.on) {
+      sprite.on('pointerdown', (pointer) => {
+        try { pointer.event.stopPropagation(); } catch (e) {}
+        if (gameOver) return;
+        // LV1 -> LV2
+        if (tower.level === 1) {
+          if (money < 150) {
+            // flash to indicate not enough money
+            try { sprite.setTint(0xff4444); setTimeout(() => sprite.clearTint(), 180); } catch (e) {}
+            return;
+          }
+          money -= 150;
+          ui.moneyText.setText(`Money: ${money}`);
+          tower.level = 2;
+          tower.damage = 60;
+          // make it shoot faster
+          tower.fireRate = Math.max(200, tower.fireRate - 200);
+          // visual indication (gold)
+          try { tower.sprite.setTint(0xffcc00); } catch (e) {}
+          try { if (tower.lvText) tower.lvText.setText('LV2'); } catch (e) {}
+          return;
+        }
+
+        // LV2 -> LV3
+        if (tower.level === 2) {
+          if (money < 400) {
+            try { sprite.setTint(0xff4444); setTimeout(() => sprite.clearTint(), 180); } catch (e) {}
+            return;
+          }
+          money -= 400;
+          ui.moneyText.setText(`Money: ${money}`);
+          tower.level = 3;
+          tower.damage = 60;
+          // increase range and make much faster
+          tower.range = (tower.range || 120) + 60; // +60 range
+          tower.fireRate = 150; // faster fire rate
+          // visual - tint red
+          try { tower.sprite.setTint(0xff4444); } catch (e) {}
+          try { if (tower.lvText) tower.lvText.setText('LV3'); } catch (e) {}
+          return;
+        }
+        // already level 3 or higher - nothing to do
+      });
+    }
   towerGroup.push(tower);
 }
 

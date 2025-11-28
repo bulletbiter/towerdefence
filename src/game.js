@@ -64,6 +64,12 @@ function create() {
   g.fillCircle(20, 20, 20);
   g.generateTexture('bigHeavy', 40, 40);
   g.clear();
+  
+  // boss (black) — massive health at wave 20
+  g.fillStyle(0x000000, 1);
+  g.fillCircle(26, 26, 26);
+  g.generateTexture('bossBlack', 52, 52);
+  g.clear();
 
   g.fillStyle(0xffcc00, 1);
   g.fillCircle(9, 9, 9);
@@ -455,6 +461,16 @@ function spawnBigHeavyEnemy(scene) {
   enemyGroup.push(enemy);
 }
 
+function spawnBossEnemy(scene) {
+  const startPixel = gridToPixel(pathPoints[0].col, pathPoints[0].row);
+  const follower = scene.add.follower(path, startPixel.x, startPixel.y, 'bossBlack');
+  follower.setDepth(2); // above terrain
+  // same speed as bigHeavy (very slow)
+  const tween = follower.startFollow({ duration: 16000, rotateToPath: false, onComplete: () => {} });
+  const enemy = { sprite: follower, hp: 10000, active: true, tween: tween };
+  enemyGroup.push(enemy);
+}
+
 function startWave() {
   wave += 1;
   ui.waveText.setText(`Wave: ${wave}`);
@@ -474,6 +490,8 @@ function startWave() {
     });
     enemyIndex++;
   }
+  // special: at the end of wave 20 spawn a massive boss (spawn after the last enemy)
+  if (wave === 20) this.time.delayedCall(count * 600, () => spawnBossEnemy(this));
 }
 
 function resetGame() {
